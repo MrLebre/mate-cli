@@ -62,9 +62,10 @@ async function makeSandbox(): Promise<Sandbox> {
     isCommandOnPath: (command: string) => command === "openspec",
     getInstalledVersion: async () => undefined,
   });
-  await plugin.apply({
+  await plugin.lifecycle.companion!.apply({
     companionPath: companion,
     activeProviders: [],
+    scope: "companion",
     mode: "sync",
     config: { allowedAgents: [], capabilities: [{ name: "openspec" }] },
   });

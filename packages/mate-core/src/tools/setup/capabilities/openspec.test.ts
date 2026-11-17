@@ -42,6 +42,7 @@ function makeCtx(
   return {
     companionPath,
     activeProviders,
+    scope: "companion",
     mode,
     config: {
       allowedAgents: activeProviders,
@@ -88,7 +89,7 @@ describe("createOpenspecPlugin", () => {
     const runOpenSpec = mock(async () => OPENSPEC_OK);
     const plugin = createOpenspecPlugin({ runOpenSpec });
     const root = await makeTempDir("mate-openspec-init-none-");
-    await plugin.apply(makeCtx(root, ["claude", "opencode"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude", "opencode"]));
 
     expect(runOpenSpec.mock.calls as unknown[]).toEqual([
       [["init", "--tools", "none", "--force", root], { cwd: root }],
@@ -139,7 +140,7 @@ describe("createOpenspecPlugin", () => {
     }
     const plugin = createOpenspecPlugin(openspecAvailable);
 
-    await plugin.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
 
     for (const runtimeDir of [".claude", ".agents", ".opencode"]) {
       for (const skill of OPENSPEC_SKILLS) {
@@ -171,7 +172,7 @@ describe("createOpenspecPlugin", () => {
     await fs.writeFile(path.join(userOwned, "SKILL.md"), "---\nname: openspec-acme\n---\n");
     const plugin = createOpenspecPlugin(openspecAvailable);
 
-    await plugin.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
 
     await expect(fs.access(generated)).rejects.toThrow();
     await expect(fs.access(path.join(userOwned, "SKILL.md"))).resolves.toBeNull();
@@ -193,7 +194,7 @@ describe("createOpenspecPlugin", () => {
       managedOutput: { record: (entry: ManagedOutputEntry) => entries.push(entry) },
     };
 
-    await createOpenspecPlugin(openspecAvailable).apply(ctx);
+    await createOpenspecPlugin(openspecAvailable).lifecycle.companion!.apply(ctx);
 
     const relative = (change: string, owner: string) =>
       entries
@@ -218,7 +219,9 @@ describe("createOpenspecPlugin", () => {
     });
     const root = await makeTempDir("mate-openspec-missing-bundled-");
 
-    await expect(plugin.apply(makeCtx(root, ["claude"]))).rejects.toThrow(/Reinstall Mate/);
+    await expect(plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]))).rejects.toThrow(
+      /Reinstall Mate/,
+    );
     await expect(fs.access(path.join(root, "openspec", "config.yaml"))).rejects.toThrow();
   });
 
@@ -244,7 +247,7 @@ describe("createOpenspecPlugin", () => {
       await fs.writeFile(path.join(root, ".claude", "skills", name, "SKILL.md"), source, "utf8");
     }
 
-    await plugin.apply(
+    await plugin.lifecycle.companion!.apply(
       makeCtx(root, ["claude", "opencode"], [{ name: "openspec" }], "setup", "auto"),
     );
 
@@ -348,7 +351,7 @@ describe("createOpenspecPlugin", () => {
     }
     const plugin = createOpenspecPlugin(openspecAvailable);
 
-    await plugin.apply(makeCtx(root, ["opencode"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["opencode"]));
 
     await expect(
       fs.access(path.join(root, ".opencode", "skills", "mate-grill-me")),
@@ -373,8 +376,8 @@ describe("createOpenspecPlugin", () => {
     }
     const plugin = createOpenspecPlugin(openspecAvailable);
 
-    await plugin.apply(makeCtx(root, ["opencode"]));
-    await plugin.teardown(makeCtx(root, ["opencode"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["opencode"]));
+    await plugin.lifecycle.companion!.teardown(makeCtx(root, ["opencode"]));
 
     for (const dir of dirs) {
       await expect(fs.access(path.join(dir, "SKILL.md"))).resolves.toBeNull();
@@ -388,7 +391,7 @@ describe("createOpenspecPlugin", () => {
     await fs.writeFile(path.join(legacy, "SKILL.md"), "legacy\n", "utf8");
     const plugin = createOpenspecPlugin(openspecAvailable);
 
-    await plugin.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
 
     await expect(fs.access(path.join(root, ".opencode"))).rejects.toThrow();
     await expect(fs.access(path.join(root, ".agents"))).rejects.toThrow();
@@ -398,7 +401,7 @@ describe("createOpenspecPlugin", () => {
     const root = await makeTempDir("mate-openspec-agents-variant-");
     const plugin = createOpenspecPlugin(openspecAvailable);
 
-    await plugin.apply(makeCtx(root, ["claude", "opencode"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude", "opencode"]));
 
     const templates = path.join(import.meta.dirname, "../../../templates/mate-skills");
     for (const [runtimeDir, bucket] of [
@@ -432,7 +435,7 @@ describe("createOpenspecPlugin", () => {
     await fs.writeFile(path.join(retired, "SKILL.md"), "retired\n", "utf8");
 
     const plugin = createOpenspecPlugin(openspecAvailable);
-    await plugin.apply(
+    await plugin.lifecycle.companion!.apply(
       makeCtx(root, ["claude", "opencode"], [{ name: "openspec" }], "reconcile", "auto"),
     );
     await plugin.forProvider!.claude.apply(
@@ -509,7 +512,7 @@ describe("createOpenspecPlugin", () => {
     const root = await makeTempDir("mate-openspec-mate-skills-inactive-");
     const plugin = createOpenspecPlugin(openspecAvailable);
 
-    await plugin.apply(makeCtx(root, ["custom"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["custom"]));
 
     await expect(fs.access(path.join(root, ".claude", "skills"))).rejects.toThrow();
     await expect(fs.access(path.join(root, ".agents", "skills"))).rejects.toThrow();
@@ -535,7 +538,7 @@ describe("createOpenspecPlugin", () => {
       }
     }
 
-    await plugin.teardown(makeCtx(root, []));
+    await plugin.lifecycle.companion!.teardown(makeCtx(root, []));
 
     await expect(fs.access(path.join(root, ".claude", "skills"))).rejects.toThrow();
     await expect(fs.access(path.join(root, ".agents", "skills"))).rejects.toThrow();
@@ -547,7 +550,7 @@ describe("createOpenspecPlugin", () => {
     const runOpenSpec = mock(async () => OPENSPEC_OK);
     const plugin = createOpenspecPlugin({ runOpenSpec });
 
-    await plugin.apply(makeCtx(root, []));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, []));
 
     expect(runOpenSpec.mock.calls.map((call) => (call as unknown[])[0])).toEqual([
       ["init", "--tools", "none", "--force", root],
@@ -562,8 +565,8 @@ describe("createOpenspecPlugin", () => {
     const plugin = createOpenspecPlugin({ runOpenSpec });
     const ctx = makeCtx(root, ["claude"], [{ name: "openspec" }], "sync");
 
-    await plugin.apply(ctx);
-    await plugin.apply(ctx);
+    await plugin.lifecycle.companion!.apply(ctx);
+    await plugin.lifecycle.companion!.apply(ctx);
 
     const skillPath = path.join(root, ".claude", "skills", "mate-grill-me", "SKILL.md");
     await expect(fs.readFile(skillPath, "utf8")).resolves.toContain("`mate-grilling`");
@@ -577,8 +580,8 @@ describe("createOpenspecPlugin", () => {
     await fs.writeFile(unmanaged, "keep me\n", "utf8");
     const plugin = createOpenspecPlugin(openspecAvailable);
 
-    await plugin.apply(makeCtx(root, ["claude"]));
-    await plugin.teardown(makeCtx(root, []));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.teardown(makeCtx(root, []));
 
     await expect(fs.readFile(unmanaged, "utf8")).resolves.toBe("keep me\n");
     await expect(
@@ -591,7 +594,7 @@ describe("createOpenspecPlugin", () => {
     const runOpenSpec = mock(async () => OPENSPEC_OK);
     const plugin = createOpenspecPlugin({ runOpenSpec });
 
-    await plugin.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
 
     expect(
       parseYaml(await fs.readFile(path.join(root, "openspec", "config.yaml"), "utf8")),
@@ -624,7 +627,7 @@ describe("createOpenspecPlugin", () => {
     const root = await makeTempDir("mate-openspec-minimal-schema-seed-");
     const plugin = createOpenspecPlugin(openspecAvailable);
 
-    await plugin.apply(makeCtx(root, ["claude"], [{ name: "openspec" }]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"], [{ name: "openspec" }]));
 
     const schemaDir = path.join(root, "openspec", "schemas", "mate-minimal");
     const schema = parseYaml(
@@ -650,7 +653,7 @@ describe("createOpenspecPlugin", () => {
     const root = await makeTempDir("mate-openspec-minimal-schema-templates-");
     const plugin = createOpenspecPlugin(openspecAvailable);
 
-    await plugin.apply(makeCtx(root, ["claude"], [{ name: "openspec" }]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"], [{ name: "openspec" }]));
 
     const schemaDir = path.join(root, "openspec", "schemas", "mate-minimal");
     const schema = parseYaml(
@@ -688,7 +691,7 @@ describe("createOpenspecPlugin", () => {
     const configPath = path.join(root, "openspec", "config.yaml");
     await fs.writeFile(configPath, "schema: spec-driven\n", "utf8");
 
-    await plugin.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
 
     expect(parseYaml(await fs.readFile(configPath, "utf8"))).toEqual({
       schema: "mate-v1",
@@ -706,7 +709,7 @@ describe("createOpenspecPlugin", () => {
     const configPath = path.join(root, "openspec", "config.yaml");
     await fs.writeFile(configPath, "schema: mate-minimal\n", "utf8");
 
-    await plugin.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
 
     expect(parseYaml(await fs.readFile(configPath, "utf8"))).toEqual({
       schema: "mate-minimal",
@@ -738,10 +741,10 @@ describe("createOpenspecPlugin", () => {
     const ctx = makeCtx(root, ["claude"]);
     const configPath = path.join(root, "openspec", "config.yaml");
 
-    await plugin.apply(ctx);
+    await plugin.lifecycle.companion!.apply(ctx);
     const first = await fs.readFile(configPath, "utf8");
     const { mtimeMs } = await fs.stat(configPath);
-    await plugin.apply(ctx);
+    await plugin.lifecycle.companion!.apply(ctx);
 
     await expect(fs.readFile(configPath, "utf8")).resolves.toBe(first);
     expect((await fs.stat(configPath)).mtimeMs).toBe(mtimeMs);
@@ -766,7 +769,7 @@ describe("createOpenspecPlugin", () => {
     const configPath = path.join(root, "openspec", "config.yaml");
     await fs.writeFile(configPath, userConfig, "utf8");
 
-    await plugin.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
 
     const merged = await fs.readFile(configPath, "utf8");
     expect(merged).toContain("# acme planning config");
@@ -794,7 +797,7 @@ describe("createOpenspecPlugin", () => {
     expect(parseYaml(initialized)).toMatchObject({ schema: "spec-driven" });
     const plugin = createOpenspecPlugin(openspecAvailable);
 
-    await plugin.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
 
     const activated = await fs.readFile(configPath, "utf8");
     expect(parseYaml(activated)).toEqual({
@@ -812,7 +815,7 @@ describe("createOpenspecPlugin", () => {
     const configPath = path.join(root, "openspec", "config.yaml");
     await fs.writeFile(configPath, 'schema: mate-v1\nrules:\n  tasks:\n    - "custom task rule"\n');
 
-    await plugin.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
 
     expect(parseYaml(await fs.readFile(configPath, "utf8"))).toEqual({
       schema: "mate-v1",
@@ -838,7 +841,7 @@ describe("createOpenspecPlugin", () => {
       ].join("\n"),
     );
 
-    await plugin.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
 
     expect(parseYaml(await fs.readFile(configPath, "utf8"))).toEqual({
       schema: "mate-v1",
@@ -856,7 +859,7 @@ describe("createOpenspecPlugin", () => {
     const stderr = spyOn(process.stderr, "write").mockImplementation(() => true);
 
     try {
-      await plugin.apply(makeCtx(root, ["claude"]));
+      await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
       const lines = stderr.mock.calls.map(([chunk]) => String(chunk));
       expect(lines.filter((line) => line.includes("openspec/config.yaml"))).toHaveLength(1);
     } finally {
@@ -870,7 +873,7 @@ describe("createOpenspecPlugin", () => {
     const plugin = createOpenspecPlugin(openspecAvailable);
     const leftover = { name: "openspec", schemaProfile: "default" } as { name: string };
 
-    await plugin.apply(makeCtx(root, ["claude"], [leftover]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"], [leftover]));
 
     expect(
       parseYaml(await fs.readFile(path.join(root, "openspec", "config.yaml"), "utf8")),
@@ -887,7 +890,7 @@ describe("createOpenspecPlugin", () => {
       `schema: acme-flow\ncontext: Acme\nrules:\n  proposal:\n    - "Name the customer."\n  specs:\n    - "Keep scenarios short."\n    - "${MATE_SPECS_RULE_MARKER}old"\n`,
     );
 
-    await plugin.apply(makeCtx(root, ["claude"]));
+    await plugin.lifecycle.companion!.apply(makeCtx(root, ["claude"]));
 
     expect(parseYaml(await fs.readFile(configPath, "utf8"))).toEqual({
       schema: "acme-flow",
@@ -968,7 +971,7 @@ describe("createOpenspecPlugin", () => {
     await fs.mkdir(path.dirname(thirdParty), { recursive: true });
     await fs.writeFile(thirdParty, "acme\n", "utf8");
 
-    await plugin.teardown(makeCtx(root, []));
+    await plugin.lifecycle.companion!.teardown(makeCtx(root, []));
 
     await expect(fs.access(path.join(root, ".claude", "skills"))).rejects.toThrow();
     await expect(fs.access(path.join(root, ".opencode", "skills"))).rejects.toThrow();
@@ -991,7 +994,7 @@ describe("createOpenspecPlugin", () => {
       "utf8",
     );
 
-    await plugin.teardown(makeCtx(root, []));
+    await plugin.lifecycle.companion!.teardown(makeCtx(root, []));
 
     await expect(fs.access(path.join(root, "openspec", "config.yaml"))).rejects.toThrow();
     await expect(fs.access(path.join(root, "openspec", "schemas", "mate-v1"))).rejects.toThrow();
@@ -1028,7 +1031,9 @@ describe("launch-time sync", () => {
     const runOpenSpec = mock(async () => OPENSPEC_OK);
     const plugin = createOpenspecPlugin({ runOpenSpec });
 
-    await plugin.apply(makeCtx(root, ["claude"], [{ name: "openspec" }], "sync"));
+    await plugin.lifecycle.companion!.apply(
+      makeCtx(root, ["claude"], [{ name: "openspec" }], "sync"),
+    );
 
     expect(runOpenSpec).not.toHaveBeenCalled();
     await expect(
@@ -1049,7 +1054,9 @@ describe("launch-time sync", () => {
 
     const stderrSpy = spyOn(process.stderr, "write").mockImplementation(() => true);
     try {
-      await plugin.apply(makeCtx(root, ["claude"], [{ name: "openspec" }], "sync"));
+      await plugin.lifecycle.companion!.apply(
+        makeCtx(root, ["claude"], [{ name: "openspec" }], "sync"),
+      );
       expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("Reinstall Mate"));
     } finally {
       stderrSpy.mockRestore();
@@ -1069,7 +1076,7 @@ describe("launch-time sync", () => {
 
     const stderrSpy = spyOn(process.stderr, "write").mockImplementation(() => true);
     try {
-      await plugin.apply(makeCtx(root, [], [{ name: "openspec" }], "sync"));
+      await plugin.lifecycle.companion!.apply(makeCtx(root, [], [{ name: "openspec" }], "sync"));
       expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("Reinstall Mate"));
     } finally {
       stderrSpy.mockRestore();
