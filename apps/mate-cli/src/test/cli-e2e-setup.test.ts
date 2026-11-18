@@ -394,7 +394,7 @@ describe("mate CLI e2e: setup, link and doctor", () => {
     expect(report.policy.allowedAgents.length).toBeGreaterThan(0);
   });
 
-  test("companion list returns all linked repositories", async () => {
+  test("companion list shows a working repository's connected companion", async () => {
     const scenario = await createScenario("mate-cli-e2e-repo-list-");
 
     expect((await setupCompanion(scenario)).exitCode).toBe(0);
@@ -406,12 +406,10 @@ describe("mate CLI e2e: setup, link and doctor", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    const parsed = JSON.parse(result.stdout) as {
-      repositories: Array<{ id: string; path: string }>;
-    };
-    expect(parsed.repositories).toHaveLength(1);
-    expect(parsed.repositories[0].id).toBe("app");
-    expect(parsed.repositories[0].path).toBe(scenario.working);
+    expect(JSON.parse(result.stdout)).toEqual({
+      workingRepository: { id: "app", path: scenario.working },
+      companions: [{ path: scenario.companion, repositoryId: "app", active: true }],
+    });
   });
 
   test("doctor reports companion state when no repos are linked", async () => {
