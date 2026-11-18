@@ -5,6 +5,15 @@ import type { ClaudeHookGroup } from "../../runtime/claude-hook-group";
 
 export type SetupScope = "companion" | "hub";
 
+// Exhaustive over SetupScope, so a new scope cannot slip past validation.
+const SETUP_SCOPE_RECORD: Record<SetupScope, true> = { companion: true, hub: true };
+
+export function isSetupScope(value: unknown): value is SetupScope {
+  return typeof value === "string" && Object.hasOwn(SETUP_SCOPE_RECORD, value);
+}
+
+export const SETUP_SCOPES = Object.keys(SETUP_SCOPE_RECORD) as SetupScope[];
+
 /**
  * Where a reconcile pass lands its documents. `companion` writes the material's
  * own repository; `working` renders the documents an Agent Runtime discovers by
